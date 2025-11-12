@@ -14,6 +14,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -145,8 +147,44 @@ func parse(input string) map[string]string {
 	return pairs
 }
 
+type loggingTransport struct {
+	base http.RoundTripper
+}
+
+func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Fprintf(os.Stderr, "\n\n--- New response ---\n")
+	hdr, _ := httputil.DumpResponse(resp, false)
+	fmt.Fprintf(os.Stderr, "--- headers start ---\n")
+	fmt.Fprint(os.Stderr, string(hdr))
+	fmt.Fprintf(os.Stderr, "--- headers end ---\n")
+
+	// first few lines of body → stderr
+	const maxPeek = 2 * 1024
+	peek := make([]byte, maxPeek)
+	n, _ := io.ReadFull(resp.Body, peek)
+
+	fmt.Fprintf(os.Stderr, "--- first %d bytes of body ---\n%s\n", n, peek[:n])
+	fmt.Fprintf(os.Stderr, "--- body end ---\n")
+	fmt.Fprintf(os.Stderr, "--- Response finished request ---\n")
+
+	// restore body for oauth2
+	resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(peek[:n]), resp.Body))
+	return resp, nil
+}
+
 func main() {
-	ctx := context.Background()
+	// 1. Build a custom *http.Client whose Transport logs.
+	httpClient := &http.Client{Transport: &loggingTransport{base: http.DefaultTransport}}
+
+	// 2. Attach that client to the OAuth2 context.
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, httpClient)
+
+	//ctx := context.Background()
 	flag.BoolVar(&verbose, "verbose", false, "log debug information to stderr")
 	var device bool
 	flag.BoolVar(&device, "device", false, "instead of opening a web browser locally, print a code to enter on another device")
