@@ -166,11 +166,11 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 
 	// first few lines of body → stderr
 	requestPeek := make([]byte, maxPeek)
-	requestN, _ := io.ReadFull(resp.Body, requestPeek)
+	requestN, _ := io.ReadFull(req.Body, requestPeek)
 
 	fmt.Fprintf(os.Stderr, "--- first %d bytes of body ---\n%s\n", requestN, requestPeek[:requestN])
 	fmt.Fprintf(os.Stderr, "--- body end ---\n")
-	fmt.Fprintf(os.Stderr, "--- Response finished request ---\n")
+	fmt.Fprintf(os.Stderr, "--- Finished request ---\n")
 
 	fmt.Fprintf(os.Stderr, "\n\n--- New response ---\n")
 	hdr, _ := httputil.DumpResponse(resp, false)
