@@ -159,20 +159,11 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	const maxPeek = 2 * 1024
 
 	fmt.Fprintf(os.Stderr, "\n\n--- New request ---\n")
-	requestHdr, _ := httputil.DumpRequest(req, false)
-	fmt.Fprintf(os.Stderr, "--- headers start ---\n")
+	requestHdr, _ := httputil.DumpRequestOut(req, true)
 	fmt.Fprint(os.Stderr, string(requestHdr))
-	fmt.Fprintf(os.Stderr, "--- headers end ---\n")
-
-	// first few lines of body → stderr
-	requestPeek := make([]byte, maxPeek)
-	requestN, _ := io.ReadFull(req.Body, requestPeek)
-
-	fmt.Fprintf(os.Stderr, "--- first %d bytes of body ---\n%s\n", requestN, requestPeek[:requestN])
-	fmt.Fprintf(os.Stderr, "--- body end ---\n")
 	fmt.Fprintf(os.Stderr, "--- Finished request ---\n")
 
-	fmt.Fprintf(os.Stderr, "\n\n--- New response ---\n")
+	fmt.Fprintf(os.Stderr, "\n--- New response ---\n")
 	hdr, _ := httputil.DumpResponse(resp, false)
 	fmt.Fprintf(os.Stderr, "--- headers start ---\n")
 	fmt.Fprint(os.Stderr, string(hdr))
@@ -184,7 +175,7 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 
 	fmt.Fprintf(os.Stderr, "--- first %d bytes of body ---\n%s\n", n, peek[:n])
 	fmt.Fprintf(os.Stderr, "--- body end ---\n")
-	fmt.Fprintf(os.Stderr, "--- Response finished request ---\n")
+	fmt.Fprintf(os.Stderr, "--- Finished response ---\n\n")
 
 	// restore body for oauth2
 	resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(peek[:n]), resp.Body))
